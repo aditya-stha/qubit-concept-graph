@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { CATEGORIES } from "./data/graph.js";
 import { STATUSES, STATUS_COLORS } from "./useProgress.js";
 
@@ -23,13 +23,24 @@ export default function Controls({
   onClearPath,
   pathActive,
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="controls">
+    <div className={`controls ${open ? "is-open" : ""}`}>
       <header>
         <h1>Quantum Hardware Observatory</h1>
         <p className="subtitle">Concept Graph · learning tracker</p>
+        <button
+          className="controls-toggle"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "Collapse controls" : "Expand controls"}
+          aria-expanded={open}
+        >
+          {open ? "▲" : "▼"}
+        </button>
       </header>
 
+      <div className="controls-body">
       <div className="control-block">
         <label className="control-label" htmlFor="search">Search</label>
         <input
@@ -118,6 +129,7 @@ export default function Controls({
         )}
         <button className="action-btn" onClick={onExport}>Export JSON</button>
         <button className="action-btn danger" onClick={onReset}>Reset progress</button>
+      </div>
       </div>
     </div>
   );

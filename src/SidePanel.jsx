@@ -37,6 +37,7 @@ export default function SidePanel({
 
   return (
     <aside className="side-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet-handle" aria-hidden="true" />
       <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
 
       <div className="cat-badge" style={{ background: cat?.color }}>
