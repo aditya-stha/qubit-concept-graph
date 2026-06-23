@@ -195,12 +195,44 @@ export default function App() {
     };
   }, [selectedNode]);
 
-  // After the graph viewport changes, re-fit so the whole graph stays visible.
+  // When the graph viewport changes size (panel open/close), move the camera
+  // along its current view vector by the same ratio the canvas changed. This
+  // keeps the graph at the same apparent on-screen size in the new visible
+  // area instead of zoomToFit-ing the whole bbox into a smaller canvas (which
+  // makes nodes tiny).
+  const prevInsetsRef = useRef(graphInsets);
   useEffect(() => {
-    if (!fgRef.current?.zoomToFit) return;
+    const fg = fgRef.current;
+    if (!fg?.cameraPosition) return;
+
+    const prev = prevInsetsRef.current;
+    const next = graphInsets;
+    prevInsetsRef.current = next;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const oldW = Math.max(1, vw - prev.left - prev.right);
+    const oldH = Math.max(1, vh - prev.top - prev.bottom);
+    const newW = Math.max(1, vw - next.left - next.right);
+    const newH = Math.max(1, vh - next.top - next.bottom);
+
+    const scale = Math.min(newW / oldW, newH / oldH);
+    if (Math.abs(scale - 1) < 0.01) return;
+
     const id = setTimeout(() => {
       try {
-        fgRef.current?.zoomToFit(500, 40);
+        const pos = fg.cameraPosition();
+        const controls = fg.controls?.();
+        const t = controls?.target || { x: 0, y: 0, z: 0 };
+        fg.cameraPosition(
+          {
+            x: t.x + (pos.x - t.x) * scale,
+            y: t.y + (pos.y - t.y) * scale,
+            z: t.z + (pos.z - t.z) * scale,
+          },
+          { x: t.x, y: t.y, z: t.z },
+          500
+        );
       } catch {
         /* ignore */
       }
