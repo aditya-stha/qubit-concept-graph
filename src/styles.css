@@ -44,6 +44,17 @@ body {
 .controls-toggle { display: none; }
 .sheet-handle { display: none; }
 
+/* Wraps the 3D canvas. Its inset is driven by JS so the graph fits in the
+   area not covered by the floating panels (controls / side panel). */
+.graph-area {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transition: top 0.22s ease, right 0.22s ease, bottom 0.22s ease, left 0.22s ease;
+}
+
 /* ---------- Controls (top-left) ---------- */
 
 .controls {

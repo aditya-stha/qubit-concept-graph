@@ -8,7 +8,7 @@ const STATUS_LABEL = {
   "understood": "Understood",
 };
 
-export default function Controls({
+const Controls = React.forwardRef(function Controls({
   searchQuery,
   setSearchQuery,
   searchInputRef,
@@ -22,11 +22,11 @@ export default function Controls({
   onExport,
   onClearPath,
   pathActive,
-}) {
+}, ref) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`controls ${open ? "is-open" : ""}`}>
+    <div ref={ref} className={`controls ${open ? "is-open" : ""}`}>
       <header>
         <h1>Quantum Hardware Observatory</h1>
         <p className="subtitle">Concept Graph · learning tracker</p>
@@ -133,4 +133,6 @@ export default function Controls({
       </div>
     </div>
   );
-}
+});
+
+export default Controls;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D from "react-force-graph-3d";
 import * as THREE from "three";
 import SpriteText from "three-spritetext";
@@ -65,6 +65,28 @@ export default function Graph3D({
   fgRef,
 }) {
   const hoverRef = useRef(null);
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState(() => ({
+    width: typeof window !== "undefined" ? window.innerWidth : 800,
+    height: typeof window !== "undefined" ? window.innerHeight : 600,
+  }));
+
+  // Track our container size so ForceGraph3D renders into the available area
+  // instead of defaulting to the full window.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.max(1, Math.round(r.width));
+      const h = Math.max(1, Math.round(r.height));
+      setDims((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Filter graph based on category + status filters
   const filtered = useMemo(() => {
@@ -142,8 +164,11 @@ export default function Graph3D({
   }, [fgRef]);
 
   return (
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
     <ForceGraph3D
       ref={fgRef}
+      width={dims.width}
+      height={dims.height}
       graphData={filtered}
       backgroundColor="#0b0f1a"
       showNavInfo={false}
@@ -210,5 +235,6 @@ export default function Graph3D({
       }}
       onBackgroundClick={() => onSelectNode(null)}
     />
+    </div>
   );
 }

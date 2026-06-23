@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Graph3D from "./Graph3D.jsx";
 import SidePanel from "./SidePanel.jsx";
 import Controls from "./Controls.jsx";
@@ -26,9 +26,34 @@ function ancestorsByDependsOn(targetId) {
   return set;
 }
 
+// For a panel anchored to one edge of the viewport, return the inset that
+// would push the graph clear of it. The anchored edge is the one OPPOSITE
+// the panel's largest empty margin — e.g. a top sheet sits with most of the
+// viewport below it, so its largest dist is distBottom and its anchor is top.
+function panelInset(el, viewport) {
+  const top = el.offsetTop;
+  const left = el.offsetLeft;
+  const width = el.offsetWidth;
+  const height = el.offsetHeight;
+  if (!width || !height) return null;
+
+  const distTop = top;
+  const distBottom = viewport.height - (top + height);
+  const distLeft = left;
+  const distRight = viewport.width - (left + width);
+  const max = Math.max(distTop, distBottom, distLeft, distRight);
+
+  if (max === distBottom) return { side: "top", value: top + height };
+  if (max === distTop) return { side: "bottom", value: viewport.height - top };
+  if (max === distRight) return { side: "left", value: left + width };
+  return { side: "right", value: viewport.width - left };
+}
+
 export default function App() {
   const fgRef = useRef(null);
   const searchInputRef = useRef(null);
+  const controlsRef = useRef(null);
+  const sidePanelRef = useRef(null);
 
   const { getStatus, setStatus, resetAll, exportJson, map } = useProgress();
 
@@ -37,6 +62,7 @@ export default function App() {
   const [hiddenCategories, setHiddenCategories] = useState(() => new Set());
   const [hiddenStatuses, setHiddenStatuses] = useState(() => new Set());
   const [highlightPath, setHighlightPath] = useState(null);
+  const [graphInsets, setGraphInsets] = useState({ top: 0, right: 0, bottom: 0, left: 0 });
 
   const data = useMemo(
     () => ({
@@ -112,21 +138,102 @@ export default function App() {
     if (fgRef.current?.refresh) fgRef.current.refresh();
   }, [map, selectedNode, highlightPath]);
 
+  // On mobile, shrink the graph viewport to the area not covered by the
+  // floating panels. Using offsetTop/offsetHeight (not getBoundingClientRect)
+  // so the slide-up animation on the side panel doesn't confuse the math.
+  useLayoutEffect(() => {
+    const mobileMq = window.matchMedia(
+      "(max-width: 720px), (pointer: coarse) and (max-width: 900px)"
+    );
+
+    const update = () => {
+      if (!mobileMq.matches) {
+        setGraphInsets((prev) =>
+          prev.top === 0 && prev.right === 0 && prev.bottom === 0 && prev.left === 0
+            ? prev
+            : { top: 0, right: 0, bottom: 0, left: 0 }
+        );
+        return;
+      }
+
+      const viewport = { width: window.innerWidth, height: window.innerHeight };
+      const margin = 8;
+      const next = { top: 0, right: 0, bottom: 0, left: 0 };
+
+      for (const el of [controlsRef.current, sidePanelRef.current]) {
+        if (!el) continue;
+        const ins = panelInset(el, viewport);
+        if (!ins) continue;
+        next[ins.side] = Math.max(next[ins.side], Math.round(ins.value + margin));
+      }
+
+      setGraphInsets((prev) =>
+        prev.top === next.top &&
+        prev.right === next.right &&
+        prev.bottom === next.bottom &&
+        prev.left === next.left
+          ? prev
+          : next
+      );
+    };
+
+    update();
+
+    const ro = new ResizeObserver(update);
+    if (controlsRef.current) ro.observe(controlsRef.current);
+    if (sidePanelRef.current) ro.observe(sidePanelRef.current);
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    mobileMq.addEventListener?.("change", update);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      mobileMq.removeEventListener?.("change", update);
+    };
+  }, [selectedNode]);
+
+  // After the graph viewport changes, re-fit so the whole graph stays visible.
+  useEffect(() => {
+    if (!fgRef.current?.zoomToFit) return;
+    const id = setTimeout(() => {
+      try {
+        fgRef.current?.zoomToFit(500, 40);
+      } catch {
+        /* ignore */
+      }
+    }, 260);
+    return () => clearTimeout(id);
+  }, [graphInsets.top, graphInsets.right, graphInsets.bottom, graphInsets.left]);
+
   return (
     <div className="app">
-      <Graph3D
-        fgRef={fgRef}
-        data={data}
-        hiddenCategories={hiddenCategories}
-        hiddenStatuses={hiddenStatuses}
-        getStatus={getStatus}
-        searchQuery={searchQuery}
-        selectedNode={selectedNode}
-        onSelectNode={setSelectedNode}
-        highlightPath={highlightPath}
-      />
+      <div
+        className="graph-area"
+        style={{
+          top: graphInsets.top,
+          right: graphInsets.right,
+          bottom: graphInsets.bottom,
+          left: graphInsets.left,
+        }}
+      >
+        <Graph3D
+          fgRef={fgRef}
+          data={data}
+          hiddenCategories={hiddenCategories}
+          hiddenStatuses={hiddenStatuses}
+          getStatus={getStatus}
+          searchQuery={searchQuery}
+          selectedNode={selectedNode}
+          onSelectNode={setSelectedNode}
+          highlightPath={highlightPath}
+        />
+      </div>
 
       <Controls
+        ref={controlsRef}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         searchInputRef={searchInputRef}
@@ -143,6 +250,7 @@ export default function App() {
       />
 
       <SidePanel
+        ref={sidePanelRef}
         node={selectedNode}
         onClose={() => setSelectedNode(null)}
         getStatus={getStatus}

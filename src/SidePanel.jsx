@@ -8,13 +8,13 @@ const STATUS_LABEL = {
   "understood": "Understood",
 };
 
-export default function SidePanel({
+const SidePanel = React.forwardRef(function SidePanel({
   node,
   onClose,
   getStatus,
   setStatus,
   onShowLearningPath,
-}) {
+}, ref) {
   if (!node) return null;
 
   const cat = CATEGORIES[node.category];
@@ -36,7 +36,7 @@ export default function SidePanel({
   const lookup = (id) => NODES.find((n) => n.id === id);
 
   return (
-    <aside className="side-panel" onClick={(e) => e.stopPropagation()}>
+    <aside ref={ref} className="side-panel" onClick={(e) => e.stopPropagation()}>
       <div className="sheet-handle" aria-hidden="true" />
       <button className="close-btn" onClick={onClose} aria-label="Close">×</button>
 
@@ -130,4 +130,6 @@ export default function SidePanel({
       )}
     </aside>
   );
-}
+});
+
+export default SidePanel;
